@@ -31,6 +31,27 @@
                         <div
                             class="relative overflow-x-auto shadow-md sm:rounded-lg"
                         >
+                            <div class="flex items-center space-x-4 mb-4">
+                                <div class="relative inline-block w-1/3">
+                                    <select
+                                        v-model="selectedSearchOptions"
+                                        multiple
+                                        @mouseenter="checkOverflow"
+                                        class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                                    >
+                                        <option value="title">Title</option>
+                                        <option value="id">Id</option>
+                                        <option value="date">Created_at</option>
+                                    </select>
+                                </div>
+                                <input
+                                    v-model="search"
+                                    type="text"
+                                    placeholder="Search Blogs"
+                                    class="w-2/3 px-4 py-2 leading-tight bg-white border rounded-lg appearance-none focus:outline-none focus:shadow-outline"
+                                />
+                            </div>
+
                             <table
                                 class="w-full text-sm text-left text-gray-500 dark:text-gray-400"
                             >
@@ -38,9 +59,14 @@
                                     class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400"
                                 >
                                     <tr>
-                                        <th scope="col" class="px-6 py-3">#</th>
+                                        <th scope="col" class="px-6 py-3">
+                                            id
+                                        </th>
                                         <th scope="col" class="px-6 py-3">
                                             Title
+                                        </th>
+                                        <th scope="col" class="px-6 py-3">
+                                            Created At
                                         </th>
                                         <th scope="col" class="px-6 py-3">
                                             Edit
@@ -52,7 +78,7 @@
                                 </thead>
                                 <tbody>
                                     <tr
-                                        v-for="blog in blogs"
+                                        v-for="blog in filteredBlogs"
                                         :key="blog.id"
                                         class="bg-white border-b dark:bg-gray-800 dark:border-gray-700"
                                     >
@@ -67,6 +93,12 @@
                                             class="px-6 py-4 font-medium text-gray-900 dark:text-white whitespace-nowrap"
                                         >
                                             {{ blog.title }}
+                                        </th>
+                                        <th
+                                            scope="row"
+                                            class="px-6 py-4 font-medium text-gray-900 dark:text-white whitespace-nowrap"
+                                        >
+                                            {{ formatDate(blog.created_at) }}
                                         </th>
 
                                         <td class="px-6 py-4">
@@ -389,6 +421,8 @@ import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import { Head, Link, useForm } from "@inertiajs/vue3";
 
+import { usePage } from "@inertiajs/vue3";
+import { watch } from "vue";
 // Modal Code starts
 import { ref } from "vue";
 
@@ -404,6 +438,7 @@ const closeModal = () => {
 // Modal Code Ends
 const props = defineProps({
     blogs: Object,
+    search: Object,
 });
 
 const form = useForm({});
@@ -413,4 +448,67 @@ function destroy(id) {
         form.delete(route("blogs.destroy", id));
     }
 }
+
+// search function
+const { blogs } = usePage().props;
+console.log(usePage().props);
+const selectedSearchOptions = ref([]); // Initialize selectedSearchOptions as an empty array
+const search = ref("");
+const filteredBlogs = ref(blogs);
+
+const applySearchFilter = () => {
+    const searchTerm = search.value.toLowerCase();
+    filteredBlogs.value = blogs.filter((blog) => {
+        return (
+            selectedSearchOptions.value.length === 0 ||
+            selectedSearchOptions.value.some((option) => {
+                if (option === "id") {
+                    return !search.value || blog[option] == search.value;
+                } else if (option === "title") {
+                    return (
+                        typeof blog[option] === "string" &&
+                        blog[option].toLowerCase().includes(searchTerm)
+                    );
+                } else if (option === "date") {
+                    // Handle the date option
+                    return (
+                        typeof formatDate(blog.created_at) === "string" &&
+                        formatDate(blog.created_at)
+                            .toLowerCase()
+                            .includes(searchTerm)
+                    );
+                } else if (!isNaN(search.value) && !isNaN(blog[option])) {
+                    return (
+                        parseFloat(blog[option]) === parseFloat(search.value)
+                    );
+                }
+            })
+        );
+    });
+};
+
+watch([search, selectedSearchOptions], applySearchFilter);
+
+// format date type
+const formatDate = (datetime) => {
+    // Format the datetime as YYYY-MM-DD
+    const dateObj = new Date(datetime);
+    if (isNaN(dateObj)) {
+        return "";
+    }
+    const year = dateObj.getFullYear();
+    const month = (dateObj.getMonth() + 1).toString().padStart(2, "0");
+    const day = dateObj.getDate().toString().padStart(2, "0");
+    return `${day}-${month}-${year}`;
+};
+//remove scroll from options if option is less
+const checkOverflow = () => {
+    const select = document.querySelector("select"); // Select the select element
+    if (select.scrollHeight > select.clientHeight) {
+        // Check if the content is overflowing
+        select.style.overflowY = "scroll"; // If overflowing, enable the scrollbar
+    } else {
+        select.style.overflowY = "hidden"; // If not overflowing, hide the scrollbar
+    }
+};
 </script>
